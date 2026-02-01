@@ -18,11 +18,11 @@ function readMeta(id) {
 function writeMeta(id, meta) {
   try {
     localStorage.setItem(META_KEY_PREFIX + id, JSON.stringify(meta || {}));
-  } catch {}
+  } catch { }
 }
 
 function deleteMeta(id) {
-  try { localStorage.removeItem(META_KEY_PREFIX + id); } catch {}
+  try { localStorage.removeItem(META_KEY_PREFIX + id); } catch { }
 }
 
 function mergeNodeWithMeta(node) {
@@ -36,8 +36,8 @@ function mergeNodeWithMeta(node) {
     urlStatus: meta.urlStatus ?? node.urlStatus ?? 'valid',
     createdAt: meta.createdAt ?? node.createdAt ?? '',
     updatedAt: meta.updatedAt ?? node.updatedAt ?? '',
-  // Prefer stored folderId label when present, else underlying node folder
-  folderId: meta.folderId ?? node.folderId ?? '',
+    // Prefer stored folderId label when present, else underlying node folder
+    folderId: meta.folderId ?? node.folderId ?? '',
   };
 }
 
@@ -159,7 +159,7 @@ export function createLocalCompositeStore(options = {}) {
         await chromeStore.removeMany(ids);
       } else {
         for (const id of ids) {
-          await chromeStore.remove(id).catch(() => {});
+          await chromeStore.remove(id).catch(() => { });
         }
       }
       ids.forEach(deleteMeta);
@@ -171,10 +171,10 @@ export function createLocalCompositeStore(options = {}) {
       // After replace, chrome will have new IDs; we need to map titles/urls back to ids.
       // Strategy: read current list and build a lookup by title+url (case-insensitive)
       const current = await chromeStore.list();
-      const index = new Map(current.map(n => [`${(n.title||'').toLowerCase()}|${(n.url||'').toLowerCase()}`, n]));
+      const index = new Map(current.map(n => [`${(n.title || '').toLowerCase()}|${(n.url || '').toLowerCase()}`, n]));
       // Clear all old meta that no longer match current IDs for safety? We'll keep as-is to avoid data loss.
       for (const b of bookmarks) {
-        const key = `${(b.title||'').toLowerCase()}|${(b.url||'').toLowerCase()}`;
+        const key = `${(b.title || '').toLowerCase()}|${(b.url || '').toLowerCase()}`;
         const node = index.get(key);
         if (!node) continue;
         const now = new Date().toISOString();
@@ -190,6 +190,33 @@ export function createLocalCompositeStore(options = {}) {
         });
       }
       await notify();
+    },
+    async bulkAdd(bookmarks) {
+      // Create in chrome
+      const createdNodes = await chromeStore.bulkAdd(bookmarks);
+      // createdNodes should match bookmarks by index if bulkAdd returns them in order
+      const now = new Date().toISOString();
+
+      // We assume createdNodes matches existing bookmarks 1-to-1 in order
+      for (let i = 0; i < bookmarks.length; i++) {
+        const b = bookmarks[i];
+        const node = createdNodes[i];
+        if (!node) continue;
+
+        writeMeta(node.id, {
+          description: b.description || '',
+          tags: b.tags || [],
+          rating: b.rating || 0,
+          faviconUrl: b.faviconUrl || node.faviconUrl || '',
+          urlStatus: b.urlStatus || 'valid',
+          folderId: b.folderId || '',
+          createdAt: b.createdAt || now,
+          updatedAt: b.updatedAt || now,
+        });
+      }
+      await notify();
+      // Return merged
+      return createdNodes.map(node => mergeNodeWithMeta(node));
     }
   };
 

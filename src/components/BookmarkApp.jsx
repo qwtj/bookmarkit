@@ -140,6 +140,18 @@ const BookmarkApp = () => {
     if (!storeRef.current) return;
     await storeRef.current.bulkReplace(arr);
   };
+  const appendBookmarks = async (arr) => {
+    if (!storeRef.current) return;
+    if (storeRef.current.bulkAdd) {
+      await storeRef.current.bulkAdd(arr);
+    } else {
+      // Fallback if store doesn't support bulkAdd (though we added it to all)
+      for (const b of arr) {
+        await storeRef.current.create(b);
+      }
+    }
+    showCustomMessage(`Imported ${arr.length} bookmarks successfully.`, 'success');
+  };
   const fetchUrlStatus = async (url) => {
     if (!url || url.trim() === '') return 'valid';
     try {
@@ -210,11 +222,11 @@ const BookmarkApp = () => {
     const rawKey = (sortBy || 'title').toString().trim().toLowerCase();
     const key = (
       rawKey === 'folder' || rawKey === 'folderid' ? 'folderId' :
-      rawKey === 'name' ? 'title' :
-      rawKey === 'stars' ? 'rating' :
-      rawKey === 'created' || rawKey === 'date' || rawKey === 'added' ? 'createdAt' :
-      rawKey === 'modified' || rawKey === 'updated' ? 'updatedAt' :
-      rawKey
+        rawKey === 'name' ? 'title' :
+          rawKey === 'stars' ? 'rating' :
+            rawKey === 'created' || rawKey === 'date' || rawKey === 'added' ? 'createdAt' :
+              rawKey === 'modified' || rawKey === 'updated' ? 'updatedAt' :
+                rawKey
     );
     const ord = (order || 'asc').toString().trim().toLowerCase().startsWith('asc') ? 'asc' : 'desc';
     return [...list].sort((a, b) => {
@@ -248,8 +260,8 @@ const BookmarkApp = () => {
     const hasPriority = actions.some((s) => typeof s?.priority === 'number');
     const ordered = hasPriority
       ? actions.map((s, idx) => ({ s, idx }))
-          .sort((a, b) => (a.s.priority - b.s.priority) || (a.idx - b.idx))
-          .map((x) => x.s)
+        .sort((a, b) => (a.s.priority - b.s.priority) || (a.idx - b.idx))
+        .map((x) => x.s)
       : actions;
     let currentResults = [...list];
     for (const step of ordered) {
@@ -309,7 +321,7 @@ const BookmarkApp = () => {
       showCustomMessage(`Reordered ${order === 'asc' ? 'ascending' : 'descending'} by ${sortBy} and saved.`, 'success');
       // Remove ephemeral sort from the current plan so UI shows persisted order
       if (plan.length > 0) {
-        const withoutSort = plan.filter((s) => !['sortBookmarks','reorder','reorderAscending','reorderDescending','persistSortedOrder'].includes(s.action));
+        const withoutSort = plan.filter((s) => !['sortBookmarks', 'reorder', 'reorderAscending', 'reorderDescending', 'persistSortedOrder'].includes(s.action));
         setLastAction(withoutSort.length > 0 ? withoutSort : null);
       }
     } catch (e) {
@@ -415,7 +427,7 @@ const BookmarkApp = () => {
   };
 
   const handleConfirmDelete = async () => {
-  if (!storeRef.current) return;
+    if (!storeRef.current) return;
     const ids = [...bookmarksToDelete];
     if (ids.length === 0) return;
     try {
@@ -424,7 +436,7 @@ const BookmarkApp = () => {
       } else {
         // Fallback: sequential
         for (const id of ids) {
-          try { await storeRef.current.remove(id); } catch {}
+          try { await storeRef.current.remove(id); } catch { }
         }
       }
       showCustomMessage(`Deleted ${ids.length} bookmark(s).`, 'success');
@@ -501,7 +513,7 @@ const BookmarkApp = () => {
           }
         }
       }
-    
+
       // Plain 'd' to delete (open confirmation modal)
       if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'd') {
         const ids = selectedBookmarkId ? [selectedBookmarkId] : (multiSelectedBookmarkIds.length ? [...multiSelectedBookmarkIds] : []);
@@ -525,7 +537,7 @@ const BookmarkApp = () => {
     if (!userQuery.trim()) return;
     setIsProcessing(true);
     setBookmarksToDelete([]);
-  const prompt = `You are an agent for a bookmark application. Based on the user's input, determine which application action(s) to take. For simple queries, return a single JSON object. For combined or sequential queries, return an array of action objects. Assign each action a numeric "priority" (lower executes earlier). The executor will sort actions by this priority and ignore array order.
+    const prompt = `You are an agent for a bookmark application. Based on the user's input, determine which application action(s) to take. For simple queries, return a single JSON object. For combined or sequential queries, return an array of action objects. Assign each action a numeric "priority" (lower executes earlier). The executor will sort actions by this priority and ignore array order.
 
     User Query: "${userQuery}"
 
@@ -562,14 +574,14 @@ const BookmarkApp = () => {
 
   Respond with ONLY a JSON object or an array of JSON objects, wrapped in a markdown code block. Do not include any other text or formatting.`;
 
-  // Create LLM using runtime-selected provider and runtime options
-  const provider = runtimeProvider || (typeof __llm_provider__ !== 'undefined' && __llm_provider__) || LLM_PROVIDERS.GEMINI;
-  const globalOpts = (typeof __llm_options__ !== 'undefined' && __llm_options__) || {};
-  const runtimeOpts = (runtimeProviderOptions && runtimeProviderOptions[provider]) || {};
-  const options = { ...globalOpts, ...runtimeOpts };
-  const llm = createLLM(provider, options);
+    // Create LLM using runtime-selected provider and runtime options
+    const provider = runtimeProvider || (typeof __llm_provider__ !== 'undefined' && __llm_provider__) || LLM_PROVIDERS.GEMINI;
+    const globalOpts = (typeof __llm_options__ !== 'undefined' && __llm_options__) || {};
+    const runtimeOpts = (runtimeProviderOptions && runtimeProviderOptions[provider]) || {};
+    const options = { ...globalOpts, ...runtimeOpts };
+    const llm = createLLM(provider, options);
 
-  // Removed quick natural-language pre-parsing to always defer to the LLM for interpretation.
+    // Removed quick natural-language pre-parsing to always defer to the LLM for interpretation.
 
     // Helper: extract JSON payload from text (supports fenced code blocks)
     const extractJsonFromText = (text) => {
@@ -603,17 +615,17 @@ const BookmarkApp = () => {
           throw e;
         }
       }
-  // Use the LLM's JSON directly. Expect an object or array of { action, parameters?, priority? }.
-  const stepsArray = Array.isArray(parsed) ? parsed : [parsed];
-  const steps = stepsArray.filter((s) => s && typeof s === 'object' && typeof s.action === 'string');
-  if (steps.length === 0) throw new Error('Unable to interpret agent response.');
-  // Stack: append to previous plan unless reset/show-all is present
-  const previous = Array.isArray(lastAction) ? lastAction : lastAction ? [lastAction] : [];
-  const containsReset = steps.some(s => ['resetSearch','showAllBookmarks'].includes(s.action));
-  const combined = containsReset ? steps : [...previous, ...steps];
-  setLastAction(combined.length === 1 ? combined[0] : combined);
-  const actions = combined;
-  for (const step of steps) {
+      // Use the LLM's JSON directly. Expect an object or array of { action, parameters?, priority? }.
+      const stepsArray = Array.isArray(parsed) ? parsed : [parsed];
+      const steps = stepsArray.filter((s) => s && typeof s === 'object' && typeof s.action === 'string');
+      if (steps.length === 0) throw new Error('Unable to interpret agent response.');
+      // Stack: append to previous plan unless reset/show-all is present
+      const previous = Array.isArray(lastAction) ? lastAction : lastAction ? [lastAction] : [];
+      const containsReset = steps.some(s => ['resetSearch', 'showAllBookmarks'].includes(s.action));
+      const combined = containsReset ? steps : [...previous, ...steps];
+      setLastAction(combined.length === 1 ? combined[0] : combined);
+      const actions = combined;
+      for (const step of steps) {
         if (step.action === 'help') setIsHelpModalOpen(true);
         if (step.action === 'importBookmarks' || step.action === 'exportBookmarks') setIsImportExportModalOpen(true);
         if (step.action === 'removeDuplicates') {
@@ -692,9 +704,9 @@ const BookmarkApp = () => {
                 aria-label="Help"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M9.09 9a3 3 0 115.82 1c-.44.86-1.26 1.3-1.91 1.63-.51.26-.75.52-.75.87v.5"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 115.82 1c-.44.86-1.26 1.3-1.91 1.63-.51.26-.75.52-.75.87v.5" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
               </button>
             </div>
@@ -747,13 +759,12 @@ const BookmarkApp = () => {
               displayedBookmarks.map((bookmark) => (
                 <div
                   key={bookmark.id}
-                  className={`relative rounded-lg border p-4 transition-all duration-200 cursor-pointer ${
-                    bookmarksToDelete.includes(bookmark.id) ? 'bg-red-50 border-red-300' :
+                  className={`relative rounded-lg border p-4 transition-all duration-200 cursor-pointer ${bookmarksToDelete.includes(bookmark.id) ? 'bg-red-50 border-red-300' :
                     multiSelectedBookmarkIds.includes(bookmark.id) ? 'bg-blue-100 border-blue-400' :
-                    selectedBookmarkId === bookmark.id ? 'bg-blue-50 border-blue-400' :
-                    (bookmark.urlStatus === 'invalid' || bookmark.unreachable) ? 'bg-yellow-100 border-yellow-300' :
-                    'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                  }`}
+                      selectedBookmarkId === bookmark.id ? 'bg-blue-50 border-blue-400' :
+                        (bookmark.urlStatus === 'invalid' || bookmark.unreachable) ? 'bg-yellow-100 border-yellow-300' :
+                          'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                    }`}
                   role="listitem"
                   aria-selected={selectedBookmarkId === bookmark.id || multiSelectedBookmarkIds.includes(bookmark.id)}
                   tabIndex={0}
@@ -799,12 +810,12 @@ const BookmarkApp = () => {
           onChange={(val) => {
             const v = (val || '').toString().toLowerCase();
             setRuntimeProvider(v);
-            try { localStorage.setItem('bm_runtime_llm_provider', v); } catch {}
+            try { localStorage.setItem('bm_runtime_llm_provider', v); } catch { }
           }}
           onChangeOptions={(opts) => {
             setRuntimeProviderOptions((prev) => {
               const next = { ...(prev || {}), [runtimeProvider]: { ...(prev?.[runtimeProvider] || {}), ...(opts || {}) } };
-              try { localStorage.setItem('bm_runtime_llm_options', JSON.stringify(next)); } catch {}
+              try { localStorage.setItem('bm_runtime_llm_options', JSON.stringify(next)); } catch { }
               return next;
             });
           }}
@@ -833,7 +844,7 @@ const BookmarkApp = () => {
             <ImportExportContent
               bookmarks={bookmarks}
               onClose={handleImportExportClose}
-              onImportJson={async (arr) => { await saveAllBookmarks(arr); handleImportExportClose(); setLastAction(null); }}
+              onImportJson={async (arr) => { await appendBookmarks(arr); handleImportExportClose(); setLastAction(null); }}
               onImportHtml={async (html) => {
                 try {
                   const parser = new DOMParser();
@@ -856,7 +867,7 @@ const BookmarkApp = () => {
                     };
                   });
                   if (importedBookmarks.length > 0) {
-                    await saveAllBookmarks(importedBookmarks);
+                    await appendBookmarks(importedBookmarks);
                     setLastAction(null);
                   } else {
                     showCustomMessage('No bookmarks found in the imported HTML.', 'info');

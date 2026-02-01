@@ -37,14 +37,14 @@ export function createFirebaseStore({ firebaseConfig, appId, initialAuthToken })
           }
         });
       });
-  // Subscribe to changes ordered by position (then title as tiebreaker)
-  unsubSnapshot = onSnapshot(query(collectionRef(), orderBy('position', 'asc'), orderBy('title', 'asc')), (snapshot) => {
+      // Subscribe to changes ordered by position (then title as tiebreaker)
+      unsubSnapshot = onSnapshot(query(collectionRef(), orderBy('position', 'asc'), orderBy('title', 'asc')), (snapshot) => {
         const all = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         notify(all);
       });
     },
     async list() {
-  const snap = await getDocs(query(collectionRef(), orderBy('position', 'asc'), orderBy('title', 'asc')));
+      const snap = await getDocs(query(collectionRef(), orderBy('position', 'asc'), orderBy('title', 'asc')));
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     },
     subscribe(cb) {
@@ -82,6 +82,26 @@ export function createFirebaseStore({ firebaseConfig, appId, initialAuthToken })
         batch.set(dref, { ...b, id: dref.id, position: typeof b.position === 'number' ? b.position : index, createdAt: b.createdAt || new Date().toISOString(), updatedAt: b.updatedAt || new Date().toISOString() });
       });
       await batch.commit();
+    },
+    async bulkAdd(bookmarks) {
+      const batch = writeBatch(db);
+      // Determine starting position by getting max position, or just append. 
+      // Simplest for now is just append without enforcing strict position continuity, 
+      // as reorder handles full list. But let's try to be nice if possible.
+      // Actually, bulkReplace resets positions. bulkAdd might just append.
+      // Let's just add them.
+      const added = [];
+      bookmarks.forEach((b) => {
+        const dref = doc(collectionRef());
+        const data = { ...b, id: dref.id, createdAt: b.createdAt || new Date().toISOString(), updatedAt: b.updatedAt || new Date().toISOString() };
+        // If position is needed we could fetch current count, but batch is atomic. 
+        // We'll leave position undefined or 0, effectively appending in default sort if we sort by position.
+        // The list query sorts by position then title.
+        batch.set(dref, data);
+        added.push(data);
+      });
+      await batch.commit();
+      return added;
     },
     /**
      * Set explicit order using a position field. Items not in orderedIds keep their relative order and are appended.

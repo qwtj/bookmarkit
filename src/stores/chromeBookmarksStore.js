@@ -204,6 +204,16 @@ export function createChromeBookmarksStore() {
         await chrome.bookmarks.create({ parentId: rootId, title: b.title || b.url, url: b.url });
       }
       await notify();
+    },
+    async bulkAdd(bookmarks) {
+      const rootId = await ensureRootFolder();
+      const createdNodes = [];
+      for (const b of bookmarks) {
+        const node = await chrome.bookmarks.create({ parentId: rootId, title: b.title || b.url, url: b.url });
+        createdNodes.push(node);
+      }
+      await notify();
+      return createdNodes.map(n => toBookmark(n));
     }
   };
 
