@@ -20,19 +20,19 @@ const MessageModal = ({ message, type = "info", onClose }) => {
       ? "bg-green-100"
       : type === "error"
         ? "bg-red-100"
-        : "bg-accent bg-opacity-10";
+        : "bg-blue-50";
   const textColor =
     type === "success"
       ? "text-green-800"
       : type === "error"
         ? "text-red-800"
-        : "text-accent";
+        : "text-blue-800";
   const borderColor =
     type === "success"
       ? "border-green-300"
       : type === "error"
         ? "border-red-300"
-        : "border-accent border-opacity-30";
+        : "border-blue-200";
 
   return (
     <div
