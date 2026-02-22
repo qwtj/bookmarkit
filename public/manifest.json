@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Bookmark Manager Extension",
+  "name": "bookmarkit extension",
   "version": "1.0.0",
   "description": "A Chrome extension built with Vite and React.",
   "action": {

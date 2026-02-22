@@ -1,8 +1,8 @@
 // background.js
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Bookmark Manager Extension installed.');
+  console.log("bookmarkit extension installed.");
 });
 
 chrome.action.onClicked.addListener(() => {
-  chrome.tabs.create({ url: chrome.runtime.getURL('index.html') });
+  chrome.tabs.create({ url: chrome.runtime.getURL("index.html") });
 });

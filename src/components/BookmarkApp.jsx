@@ -681,7 +681,7 @@ const BookmarkApp = () => {
       <header className={`fixed top-0 left-0 right-0 z-10 transition-transform duration-300 ${isHeaderVisible ? 'translate-y-0' : '-translate-y-full'}`} style={{ height: '112px' }} role="banner">
         <div className="bg-white shadow-sm border-b border-gray-200 h-full">
           <div className="max-w-4xl mx-auto px-4 py-4 h-full flex flex-col justify-center">
-            <h1 className="sr-only">Bookmark Manager</h1>
+            <h1 className="sr-only">bookmarkit</h1>
             <div className="flex justify-center items-center space-x-2">
               <div className="relative w-full max-w-md">
                 <input

@@ -1,6 +1,17 @@
-# bookmark-manager-lm
+# bookmarkit
 
-AI‑assisted bookmark manager that runs as a Chrome Extension (and also as a regular Vite + React web app). Search, filter, tag, rate, and de‑duplicate your bookmarks using natural language. Import/export to JSON or standard Netscape HTML. Choose from multiple LLM providers (Gemini, OpenAI, Grok, Ollama, LM Studio) and switch at runtime.
+**Bookmarkit** is a modern, React‑powered application that helps you organize and query your bookmarks using natural language. It can be used both as a **Vite/React web app** and packaged as a **Chrome extension**.
+
+Key capabilities include:
+
+- Natural-language search and AI-driven actions
+- Multi-provider LLM integration (Gemini, OpenAI, Grok, Ollama, LM Studio)
+- Import/export to JSON or Netscape HTML
+- Local or optional Firebase storage backend
+
+The project is built with Vite, styled with Tailwind CSS, and designed for flexibility through runtime configuration and modular architecture.
+
+---
 
 ## Features
 
@@ -51,8 +62,8 @@ AI‑assisted bookmark manager that runs as a Chrome Extension (and also as a re
 ### Install
 
 ```bash
-git clone https://github.com/your-org/bookmark-manager-lm.git
-cd bookmark-manager-lm
+git clone https://github.com/your-org/bookmarkit.git
+cd bookmarkit
 npm install
 ```
 
@@ -93,11 +104,11 @@ npm run build
 ```json
 {
   "manifest_version": 3,
-  "name": "Bookmark Manager LM",
+  "name": "bookmarkit",
   "version": "1.0.0",
-  "description": "AI-assisted bookmark manager.",
+  "description": "AI-assisted bookmarkit.",
   "action": {
-    "default_title": "Bookmark Manager",
+    "default_title": "bookmarkit",
     "default_popup": "index.html"
   },
   "icons": {
@@ -169,7 +180,7 @@ export default defineConfig({
     }),
     __use_firebase__: JSON.stringify(false),
     __firebase_config: JSON.stringify(undefined),
-    __app_id: JSON.stringify('bookmark-manager-lm'),
+    __app_id: JSON.stringify('bookmarkit'),
     __initial_auth_token: JSON.stringify(undefined)
   }
 })

@@ -1,2 +1,2 @@
 // content.js
-console.log('Bookmark Manager Extension content script loaded.');
+console.log("bookmarkit extension content script loaded.");
