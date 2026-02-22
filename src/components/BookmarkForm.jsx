@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createLLM, LLM_PROVIDERS } from "../llm/index.js";
 
 const BookmarkForm = ({
@@ -22,8 +22,35 @@ const BookmarkForm = ({
   const [ignoreUrlValidation, setIgnoreUrlValidation] = useState(
     bookmark?.urlStatus === "ignored",
   );
-  const [currentUrlValidity, setCurrentUrlValidity] = useState("checking"); // 'checking', 'valid', 'invalid'
-  const [hasUrlInputChanged, setHasUrlInputChanged] = useState(false); // show ignore only after typing
+  // UX-02: Split into 4 distinct states so spinner only shows during active validation
+  const [currentUrlValidity, setCurrentUrlValidity] = useState("idle"); // 'idle', 'checking', 'valid', 'invalid'
+  const [hasUrlInputChanged, setHasUrlInputChanged] = useState(false);
+
+  // UX-01: Error state for LLM suggestion failures
+  const [descriptionError, setDescriptionError] = useState("");
+  const [tagsError, setTagsError] = useState("");
+  const descErrorTimer = useRef(null);
+  const tagsErrorTimer = useRef(null);
+
+  // A11Y-04: Live region refs for screen reader announcements
+  const descLiveRef = useRef(null);
+  const tagsLiveRef = useRef(null);
+
+  const showDescError = (msg) => {
+    setDescriptionError(msg);
+    if (descErrorTimer.current) clearTimeout(descErrorTimer.current);
+    if (msg) descErrorTimer.current = setTimeout(() => setDescriptionError(""), 5000);
+  };
+  const showTagsError = (msg) => {
+    setTagsError(msg);
+    if (tagsErrorTimer.current) clearTimeout(tagsErrorTimer.current);
+    if (msg) tagsErrorTimer.current = setTimeout(() => setTagsError(""), 5000);
+  };
+
+  useEffect(() => () => {
+    if (descErrorTimer.current) clearTimeout(descErrorTimer.current);
+    if (tagsErrorTimer.current) clearTimeout(tagsErrorTimer.current);
+  }, []);
 
   // Create a single LLM instance using the app's configured provider/options (same pattern as BookmarkApp)
   const llm = useMemo(() => {
@@ -38,11 +65,9 @@ const BookmarkForm = ({
   // Helpers to normalize LLM text outputs
   const cleanLLMText = (text) => {
     if (!text) return "";
-    // Strip markdown code fences and leading labels
     let t = String(text).trim();
     const fenceMatch = t.match(/```[a-zA-Z]*\n?([\s\S]*?)\n?```/);
     if (fenceMatch) t = fenceMatch[1].trim();
-    // Remove any leading descriptors like "Description:" or "Tags:"
     t = t.replace(/^\s*(description|tags)\s*:\s*/i, "").trim();
     return t;
   };
@@ -55,7 +80,6 @@ const BookmarkForm = ({
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    // Deduplicate while preserving order
     const seen = new Set();
     const unique = parts.filter((tag) =>
       seen.has(tag.toLowerCase()) ? false : (seen.add(tag.toLowerCase()), true),
@@ -64,26 +88,25 @@ const BookmarkForm = ({
   };
 
   useEffect(() => {
-    let isMounted = true; // prevent state updates after unmount
-    // If ignoring validation, skip checks
+    let isMounted = true;
     if (ignoreUrlValidation)
-      return () => {
-        isMounted = false;
-      };
+      return () => { isMounted = false; };
 
-    // Show checking immediately when URL changes or is empty
+    // UX-02: Set 'idle' when URL is empty, 'checking' only during active validation
+    if (!formData.url) {
+      setCurrentUrlValidity("idle");
+      return () => { isMounted = false; };
+    }
+
     setCurrentUrlValidity("checking");
 
     if (!fetchUrlStatus)
-      return () => {
-        isMounted = false;
-      };
+      return () => { isMounted = false; };
 
     const url = formData.url;
     const timer = setTimeout(async () => {
-      // If no URL, remain in 'checking' state (do not call API)
       if (!url) {
-        if (isMounted) setCurrentUrlValidity("checking");
+        if (isMounted) setCurrentUrlValidity("idle");
         return;
       }
       try {
@@ -108,11 +131,29 @@ const BookmarkForm = ({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // A11Y-03: Keyboard navigation for star rating
   const handleRatingChange = (newRating) => {
     setFormData((prev) => ({
       ...prev,
       rating: prev.rating === newRating ? 0 : newRating,
     }));
+  };
+
+  const handleRatingKeyDown = (e, star) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleRatingChange(star);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      const next = Math.min(5, star + 1);
+      handleRatingChange(next);
+      document.getElementById(`star-${next}`)?.focus();
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      const prev = Math.max(1, star - 1);
+      handleRatingChange(prev);
+      document.getElementById(`star-${prev}`)?.focus();
+    }
   };
 
   const handleSubmit = (e) => {
@@ -132,14 +173,25 @@ const BookmarkForm = ({
 
   const generateDescriptionWithGemini = async () => {
     setIsGeneratingDescription(true);
+    showDescError("");
+    // A11Y-04: Announce generation start to screen readers
+    if (descLiveRef.current) descLiveRef.current.textContent = "Generating description…";
     const prompt = `Generate a concise description (1-2 sentences) for the following bookmark. Only return the description, no other text.\nTitle: ${formData.title}\nURL: ${formData.url}`;
     try {
       const raw = await llm.generate(prompt);
       const suggested = cleanLLMText(raw);
-      if (suggested)
+      if (suggested) {
         setFormData((prev) => ({ ...prev, description: suggested }));
-    } catch (error) {
-      console.error("Error generating description via LLM:", error);
+        if (descLiveRef.current) descLiveRef.current.textContent = "Description generated.";
+      } else {
+        // UX-01: Empty response feedback
+        showDescError("No suggestion returned. Try rephrasing or check your LLM provider.");
+        if (descLiveRef.current) descLiveRef.current.textContent = "";
+      }
+    } catch {
+      // UX-01: Error feedback without exposing raw error
+      showDescError("Could not generate description. Check your LLM settings.");
+      if (descLiveRef.current) descLiveRef.current.textContent = "";
     } finally {
       setIsGeneratingDescription(false);
     }
@@ -147,17 +199,28 @@ const BookmarkForm = ({
 
   const generateTagsWithGemini = async () => {
     setIsGeneratingTags(true);
+    showTagsError("");
+    // A11Y-04: Announce generation start to screen readers
+    if (tagsLiveRef.current) tagsLiveRef.current.textContent = "Generating tags…";
     const prompt = `Given the following bookmark details, suggest 3-8 short, relevant tags as a comma-separated list. Only return the tags, no other text.\nTitle: ${formData.title}\nURL: ${formData.url}\nDescription: ${formData.description}`;
     try {
       const raw = await llm.generate(prompt);
       const csv = toCsvTags(raw);
-      if (csv)
+      if (csv) {
         setFormData((prev) => ({
           ...prev,
           tags: prev.tags ? `${prev.tags}, ${csv}` : csv,
         }));
-    } catch (error) {
-      console.error("Error generating tags via LLM:", error);
+        if (tagsLiveRef.current) tagsLiveRef.current.textContent = "Tags generated.";
+      } else {
+        // UX-01: Empty response feedback
+        showTagsError("No suggestion returned. Try rephrasing or check your LLM provider.");
+        if (tagsLiveRef.current) tagsLiveRef.current.textContent = "";
+      }
+    } catch {
+      // UX-01: Error feedback without exposing raw error
+      showTagsError("Could not generate tags. Check your LLM settings.");
+      if (tagsLiveRef.current) tagsLiveRef.current.textContent = "";
     } finally {
       setIsGeneratingTags(false);
     }
@@ -165,6 +228,10 @@ const BookmarkForm = ({
 
   return (
     <form onSubmit={handleSubmit} className="p-6">
+      {/* A11Y-04: Visually-hidden live regions for screen reader announcements */}
+      <span ref={descLiveRef} aria-live="polite" className="sr-only" />
+      <span ref={tagsLiveRef} aria-live="polite" className="sr-only" />
+
       <h2 className="text-2xl font-semibold mb-6 text-primary-text">
         {bookmark ? "Edit Bookmark" : "Add New Bookmark"}
       </h2>
@@ -193,24 +260,57 @@ const BookmarkForm = ({
           >
             URL
           </label>
-          <input
-            type="url"
-            id="url"
-            name="url"
-            value={formData.url}
-            onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded-md focus:ring-accent focus:border-accent themed-input ${
-              currentUrlValidity === "invalid" && !ignoreUrlValidation
-                ? "border-red-500"
-                : "border-border"
-            }`}
-            required
-          />
+          {/* UX-02: Relative wrapper for spinner positioning */}
+          <div className="relative">
+            <input
+              type="url"
+              id="url"
+              name="url"
+              value={formData.url}
+              onChange={handleChange}
+              // A11Y-01: aria-invalid and aria-describedby for screen reader feedback
+              aria-invalid={currentUrlValidity === "invalid" && !ignoreUrlValidation}
+              aria-describedby="url-validation-msg"
+              className={`w-full px-3 py-2 border rounded-md focus:ring-accent focus:border-accent themed-input ${
+                currentUrlValidity === "invalid" && !ignoreUrlValidation
+                  ? "border-red-500"
+                  : currentUrlValidity === "valid"
+                    ? "border-green-500"
+                    : "border-border"
+              }`}
+              required
+            />
+            {/* UX-02: Inline spinner during active validation */}
+            {currentUrlValidity === "checking" && formData.url && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-accent" />
+              </div>
+            )}
+            {/* UX-02: Inline checkmark when valid */}
+            {currentUrlValidity === "valid" && !ignoreUrlValidation && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-sm">✓</div>
+            )}
+          </div>
+          {/* A11Y-01: role="alert" region for screen reader announcements of validation state */}
+          <span id="url-validation-msg" role="alert" className="sr-only">
+            {currentUrlValidity === "invalid" && !ignoreUrlValidation
+              ? "URL appears to be unreachable."
+              : ""}
+          </span>
+          {/* UX-02: Visible error text when invalid */}
+          {currentUrlValidity === "invalid" && !ignoreUrlValidation && (
+            <p className="mt-1 text-sm text-red-600">URL appears to be unreachable.</p>
+          )}
           {hasUrlInputChanged &&
             (ignoreUrlValidation || currentUrlValidity !== "valid") && (
+              // UX-02: Renamed from "Ignore checking" to "Save anyway" with tooltip
               <button
                 type="button"
                 onClick={() => setIgnoreUrlValidation((v) => !v)}
+                title="This URL failed validation but you can still save it"
+                // A11Y-01: aria-pressed and descriptive aria-label
+                aria-pressed={ignoreUrlValidation}
+                aria-label="Bypass URL validation for this bookmark"
                 className={`mt-2 px-3 py-1 text-white text-sm rounded-md transition-colors duration-200 ${
                   ignoreUrlValidation
                     ? "bg-green-500 hover:bg-green-600"
@@ -219,7 +319,7 @@ const BookmarkForm = ({
                       : "bg-red-500 hover:bg-red-600"
                 }`}
               >
-                {ignoreUrlValidation ? "Ignored" : "Ignore checking"}
+                {ignoreUrlValidation ? "Ignored" : "Save anyway"}
               </button>
             )}
         </div>
@@ -239,17 +339,33 @@ const BookmarkForm = ({
               rows="3"
               className="w-full px-3 py-2 border border-border rounded-md focus:ring-accent focus:border-accent themed-input"
             ></textarea>
+            {/* A11Y-01: Descriptive aria-label to distinguish from tags Suggest button */}
             <button
               type="button"
               onClick={generateDescriptionWithGemini}
               disabled={
                 isGeneratingDescription || !formData.url || !formData.title
               }
+              aria-label="Suggest description using AI"
               className="px-3 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isGeneratingDescription ? "Generating..." : "Suggest"}
             </button>
           </div>
+          {/* UX-01: Inline error feedback for description generation */}
+          {descriptionError && (
+            <div className="mt-1 flex items-center justify-between">
+              <p className="text-sm text-red-600">{descriptionError}</p>
+              <button
+                type="button"
+                onClick={() => showDescError("")}
+                className="text-red-400 hover:text-red-600 ml-2 text-xs"
+                aria-label="Dismiss description error"
+              >
+                ×
+              </button>
+            </div>
+          )}
         </div>
         <div>
           <label
@@ -268,15 +384,31 @@ const BookmarkForm = ({
               className="w-full px-3 py-2 border border-border rounded-md focus:ring-accent focus:border-accent themed-input"
               placeholder="e.g., development, web, reference"
             />
+            {/* A11Y-01: Descriptive aria-label to distinguish from description Suggest button */}
             <button
               type="button"
               onClick={generateTagsWithGemini}
               disabled={isGeneratingTags || !formData.url || !formData.title}
+              aria-label="Suggest tags using AI"
               className="px-3 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isGeneratingTags ? "Generating..." : "Suggest"}
             </button>
           </div>
+          {/* UX-01: Inline error feedback for tags generation */}
+          {tagsError && (
+            <div className="mt-1 flex items-center justify-between">
+              <p className="text-sm text-red-600">{tagsError}</p>
+              <button
+                type="button"
+                onClick={() => showTagsError("")}
+                className="text-red-400 hover:text-red-600 ml-2 text-xs"
+                aria-label="Dismiss tags error"
+              >
+                ×
+              </button>
+            </div>
+          )}
         </div>
         <div>
           <label
@@ -316,17 +448,32 @@ const BookmarkForm = ({
           <label className="block text-sm font-medium text-primary-text mb-1">
             Rating
           </label>
-          <div className="flex items-center space-x-1">
+          {/* A11Y-01, A11Y-03: Keyboard-navigable star rating with radiogroup semantics */}
+          <div role="radiogroup" aria-label="Rating" className="flex items-center space-x-1">
             {[1, 2, 3, 4, 5].map((star) => (
-              <svg
+              <button
                 key={star}
-                className={`h-6 w-6 cursor-pointer ${star <= formData.rating ? "text-yellow-400" : "text-secondary-text"}`}
-                fill="currentColor"
-                viewBox="0 0 20 20"
+                id={`star-${star}`}
+                type="button"
+                role="radio"
+                aria-checked={star <= formData.rating}
+                aria-label={`${star} star${star === 1 ? "" : "s"}`}
+                tabIndex={0}
                 onClick={() => handleRatingChange(star)}
+                onKeyDown={(e) => handleRatingKeyDown(e, star)}
+                className={`h-6 w-6 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent rounded-sm ${
+                  star <= formData.rating ? "text-yellow-400" : "text-secondary-text"
+                }`}
               >
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.683-1.539 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.783.565-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
-              </svg>
+                <svg
+                  className="h-6 w-6"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                >
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.683-1.539 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.783.565-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
+                </svg>
+              </button>
             ))}
           </div>
         </div>

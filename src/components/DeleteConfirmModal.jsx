@@ -1,26 +1,56 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
+import { useFocusTrap } from "../hooks/useFocusTrap.js";
 
-const DeleteConfirmModal = ({ message, onConfirm, onCancel }) => (
-  <div className="p-6 text-center bg-primary-bg rounded-lg">
-    <h3 className="text-xl font-semibold mb-4 text-primary-text">
-      Confirm Deletion
-    </h3>
-    <p className="text-secondary-text mb-6">{message}</p>
-    <div className="flex justify-center space-x-4">
-      <button
-        onClick={onCancel}
-        className="px-6 py-2 bg-secondary-bg text-primary-text border border-border rounded-md hover:bg-border focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 transition-colors duration-200"
+// A11Y-02, A11Y-04, PERF-05: Accessible delete confirmation modal with focus trap,
+// alertdialog role, Escape key handler, focus restoration, and React.memo.
+const DeleteConfirmModal = ({ message, onConfirm, onCancel }) => {
+  const containerRef = useRef(null);
+  useFocusTrap(containerRef);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onCancel();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel]);
+
+  return (
+    // A11Y-04: role="alertdialog" for confirmations requiring immediate user response
+    <div
+      ref={containerRef}
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="delete-confirm-title"
+      aria-describedby="delete-confirm-msg"
+      className="p-6 text-center bg-primary-bg rounded-lg"
+      tabIndex={-1}
+    >
+      <h3
+        id="delete-confirm-title"
+        className="text-xl font-semibold mb-4 text-primary-text"
       >
-        Cancel
-      </button>
-      <button
-        onClick={onConfirm}
-        className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200"
-      >
-        Delete
-      </button>
+        Confirm Deletion
+      </h3>
+      <p id="delete-confirm-msg" className="text-secondary-text mb-6">
+        {message}
+      </p>
+      <div className="flex justify-center space-x-4">
+        <button
+          onClick={onCancel}
+          className="px-6 py-2 bg-secondary-bg text-primary-text border border-border rounded-md hover:bg-border focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 transition-colors duration-200"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200"
+        >
+          Delete
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
-export default DeleteConfirmModal;
+export default React.memo(DeleteConfirmModal);
