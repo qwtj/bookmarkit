@@ -193,10 +193,10 @@ const BookmarkApp = () => {
     setIsModalOpen(false);
   }, [saveBookmark]);
 
-  const handleDeleteBookmark = useCallback(async (id) => {
-    await deleteBookmark(id);
-    setIsModalOpen(false);
-  }, [deleteBookmark]);
+  const handleDeleteBookmark = useCallback((id) => {
+    setBookmarksToDelete([id]);
+    setIsDeleteConfirmModalOpen(true);
+  }, []);
 
   // UX-09: Keep modal open during delete; show error on failure; success toast
   const handleConfirmDelete = useCallback(async () => {
@@ -211,6 +211,7 @@ const BookmarkApp = () => {
     try {
       await deleteBookmarks(ids);
       setIsDeleteConfirmModalOpen(false);
+      setIsModalOpen(false);
       setSelectedBookmarkId(null);
       setMultiSelectedBookmarkIds([]);
       showCustomMessage(`Deleted ${ids.length} bookmark(s).`, "success");
