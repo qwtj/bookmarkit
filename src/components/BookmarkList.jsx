@@ -2,7 +2,7 @@
 // Only renders visible rows, allowing 1000+ bookmarks without DOM bloat.
 // ARCH-10: Renders contextual empty states depending on loading/search/results state.
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FixedSizeList } from "react-window";
 import BookmarkCard from "./BookmarkCard.jsx";
 
@@ -57,6 +57,37 @@ function EmptyState({ isLoading, bookmarksTotal, searchActive, lastAction, searc
   return null;
 }
 
+// renderRow is defined outside the component so its reference is always stable.
+// react-window uses the children prop as the component *type* via createElement —
+// if the function reference changes between clicks React unmounts/remounts the row
+// DOM nodes, which causes the browser to lose double-click tracking. By keeping
+// renderRow stable and passing all changing state through itemData we avoid this.
+function renderRow({ index, style, data }) {
+  const {
+    bookmarks,
+    selectedBookmarkId,
+    multiSelectedBookmarkIds,
+    bookmarksToDelete,
+    onBookmarkClick,
+    onBookmarkDoubleClick,
+    onBookmarkKeyDown,
+  } = data;
+  const bookmark = bookmarks[index];
+  return (
+    <div style={{ ...style, paddingBottom: 8 }}>
+      <BookmarkCard
+        bookmark={bookmark}
+        isSelected={selectedBookmarkId === bookmark.id}
+        isMultiSelected={multiSelectedBookmarkIds.includes(bookmark.id)}
+        isPendingDelete={bookmarksToDelete.includes(bookmark.id)}
+        onClick={(e) => onBookmarkClick(bookmark, e)}
+        onDoubleClick={() => onBookmarkDoubleClick(bookmark)}
+        onKeyDown={(e) => onBookmarkKeyDown(e, bookmark)}
+      />
+    </div>
+  );
+}
+
 const BookmarkList = React.memo(function BookmarkList({
   bookmarks,
   selectedBookmarkId,
@@ -91,23 +122,17 @@ const BookmarkList = React.memo(function BookmarkList({
     return () => ro.disconnect();
   }, []);
 
-  const renderRow = useCallback(
-    ({ index, style }) => {
-      const bookmark = bookmarks[index];
-      return (
-        <div style={{ ...style, paddingBottom: 8 }}>
-          <BookmarkCard
-            bookmark={bookmark}
-            isSelected={selectedBookmarkId === bookmark.id}
-            isMultiSelected={multiSelectedBookmarkIds.includes(bookmark.id)}
-            isPendingDelete={bookmarksToDelete.includes(bookmark.id)}
-            onClick={(e) => onBookmarkClick(bookmark, e)}
-            onDoubleClick={() => onBookmarkDoubleClick(bookmark)}
-            onKeyDown={(e) => onBookmarkKeyDown(e, bookmark)}
-          />
-        </div>
-      );
-    },
+  // Pack all row-level state into itemData so renderRow (stable ref) can read it.
+  const itemData = useMemo(
+    () => ({
+      bookmarks,
+      selectedBookmarkId,
+      multiSelectedBookmarkIds,
+      bookmarksToDelete,
+      onBookmarkClick,
+      onBookmarkDoubleClick,
+      onBookmarkKeyDown,
+    }),
     [bookmarks, selectedBookmarkId, multiSelectedBookmarkIds, bookmarksToDelete, onBookmarkClick, onBookmarkDoubleClick, onBookmarkKeyDown],
   );
 
@@ -133,6 +158,7 @@ const BookmarkList = React.memo(function BookmarkList({
         height={listHeight}
         itemCount={bookmarks.length}
         itemSize={ITEM_HEIGHT}
+        itemData={itemData}
         width="100%"
         overscanCount={5}
         style={{ overflowX: "hidden" }}
