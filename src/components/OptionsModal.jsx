@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { LLM_PROVIDERS, createLLM } from "../llm/index.js";
+import { useDebounce } from "../hooks/useDebounce.js";
 
 // ARCH-04: Module-level cache for listModels() results, keyed by "provider|apiKey|baseUrl".
 // A 5-minute TTL prevents hammering the models endpoint when the modal is repeatedly opened.
@@ -22,6 +23,9 @@ const OptionsModal = ({
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelsError, setModelsError] = useState("");
   const [showExample, setShowExample] = useState(false);
+
+  const debouncedApiKey = useDebounce(providerOptions.apiKey || "", 600);
+  const debouncedBaseUrl = useDebounce(providerOptions.baseUrl || "", 600);
 
   const fetchModels = async (forceRefresh = false) => {
     // ARCH-04: Check module-level cache before making a network request
@@ -57,10 +61,9 @@ const OptionsModal = ({
   };
 
   useEffect(() => {
-    // Auto-fetch on open and when provider or core connection info changes
     fetchModels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, providerOptions.apiKey, providerOptions.baseUrl]);
+  }, [provider, debouncedApiKey, debouncedBaseUrl]);
 
   const providerEntries = [
     { value: LLM_PROVIDERS.GEMINI, label: "Gemini" },
