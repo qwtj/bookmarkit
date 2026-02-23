@@ -295,30 +295,38 @@ const BookmarkForm = ({
             {currentUrlValidity === "valid" && !ignoreUrlValidation && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500">✓</div>
             )}
-            {/* Green arrow when invalid — click to ignore and mark OK */}
+            {/* "Ignore" button when invalid */}
             {currentUrlValidity === "invalid" && !ignoreUrlValidation && (
               <button
                 type="button"
                 onClick={() => setIgnoreUrlValidation(true)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-green-600 hover:text-green-700 focus:outline-none"
-                title="Accept URL and save anyway"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-green-600 hover:text-green-700 focus:outline-none"
                 aria-label="Ignore URL validation error"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                Ignore
               </button>
-            )}
-            {/* Green checkmark when ignored */}
-            {ignoreUrlValidation && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500">✓</div>
             )}
           </div>
           <span id="url-validation-msg" role="alert" className="sr-only">
             {currentUrlValidity === "invalid" && !ignoreUrlValidation ? "URL not found." : ""}
           </span>
+          {/* Yellow "Not Found" when invalid */}
           {currentUrlValidity === "invalid" && !ignoreUrlValidation && (
             <p className="mt-1 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">Not Found</p>
+          )}
+          {/* Green "Ignored" with × to undo when ignored */}
+          {ignoreUrlValidation && (
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">Ignored</span>
+              <button
+                type="button"
+                onClick={() => setIgnoreUrlValidation(false)}
+                className="text-green-600 hover:text-green-800 focus:outline-none"
+                aria-label="Remove ignored status"
+              >
+                ×
+              </button>
+            </div>
           )}
         </div>
         <div>

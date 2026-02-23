@@ -119,15 +119,23 @@ const BookmarkApp = () => {
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // ─── URL validation ──────────────────────────────────────────────────────────
-  // HEAD + no-cors: no CORS preflight needed, any server response = reachable,
-  // network error (DNS fail, timeout, connection refused) = invalid.
+  // Phase 1: regular HEAD — if the response is readable, use response.ok (catches 404/500).
+  // Phase 2: if CORS blocks the read, fall back to no-cors — an opaque response means
+  //          the server is reachable even though we can't see its status code.
+  // A throw in both phases means the host is genuinely unreachable.
   const fetchUrlStatus = useCallback(async (url) => {
     if (!url) return "idle";
     try {
-      await fetch(url, { method: "HEAD", mode: "no-cors", signal: AbortSignal.timeout(5000) });
-      return "valid";
+      const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(5000) });
+      return res.ok ? "valid" : "invalid";
     } catch {
-      return "invalid";
+      // CORS error or network failure — try no-cors to distinguish the two
+      try {
+        await fetch(url, { method: "HEAD", mode: "no-cors", signal: AbortSignal.timeout(5000) });
+        return "valid"; // server responded, just CORS-blocked so status is opaque
+      } catch {
+        return "invalid"; // DNS failure, connection refused, timeout, etc.
+      }
     }
   }, []);
 
