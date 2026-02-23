@@ -201,7 +201,6 @@ const BookmarkApp = () => {
   const handleImportExportClose = useCallback(() => setIsImportExportModalOpen(false), []);
 
   const handleBookmarkClick = useCallback((bookmark, e) => {
-    e?.stopPropagation(); // prevent click from bubbling to the main container's deselect handler
     if (e?.shiftKey || e?.key === " ") {
       window.open(bookmark.url, "_blank", "noopener,noreferrer");
       setSelectedBookmarkId(null);
@@ -248,6 +247,15 @@ const BookmarkApp = () => {
     setLastAction(null);
     setSelectedBookmarkId(null);
     setBookmarksToDelete([]);
+  }, []);
+
+  // ─── Deselect on click-outside ───────────────────────────────────────────────
+  // A mousedown on any element that isn't a bookmark card (which stops propagation)
+  // clears the selection — covers header, buttons, modals, empty space, everything.
+  useEffect(() => {
+    const onMouseDown = () => { setSelectedBookmarkId(null); setMultiSelectedBookmarkIds([]); };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
   }, []);
 
   // ─── Keyboard shortcuts ──────────────────────────────────────────────────────
@@ -535,11 +543,7 @@ const BookmarkApp = () => {
         </div>
       </header>
 
-      <main
-        className={`flex-1 overflow-hidden flex flex-col transition-all duration-300 ${isHeaderVisible ? "pt-28" : "pt-4"}`}
-        role="main"
-        onClick={() => { setSelectedBookmarkId(null); setMultiSelectedBookmarkIds([]); }}
-      >
+      <main className={`flex-1 overflow-hidden flex flex-col transition-all duration-300 ${isHeaderVisible ? "pt-28" : "pt-4"}`} role="main">
         <div className="flex-1 min-h-0 max-w-4xl w-full mx-auto px-4 flex flex-col">
           {/* Agent plan display */}
           {lastAction && (

@@ -32,6 +32,7 @@ const BookmarkCard = React.memo(function BookmarkCard({
       role="listitem"
       aria-selected={isActive}
       tabIndex={0}
+      onMouseDown={(e) => e.stopPropagation()}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onKeyDown={onKeyDown}
