@@ -116,8 +116,12 @@ const BookmarkForm = ({
         return;
       }
       try {
-        const status = await fetchUrlStatus(url);
-        if (isMounted) setCurrentUrlValidity(status);
+        const result = await fetchUrlStatus(url);
+        if (!isMounted) return;
+        setCurrentUrlValidity(result.status);
+        if (result.redirectUrl) {
+          setFormData((prev) => ({ ...prev, url: result.redirectUrl }));
+        }
       } catch {
         if (isMounted) setCurrentUrlValidity("invalid");
       }

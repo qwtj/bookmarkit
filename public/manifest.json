@@ -15,13 +15,7 @@
   },
   "permissions": ["storage", "tabs", "bookmarks"],
   "host_permissions": [
-    "https://generativelanguage.googleapis.com/*",
-    "https://api.openai.com/*",
-    "https://api.x.ai/*",
-    "https://*.firebaseio.com/*",
-    "https://firestore.googleapis.com/*",
-    "http://localhost:11434/*",
-    "http://localhost:1234/*"
+    "<all_urls>"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"

@@ -119,24 +119,24 @@ const BookmarkApp = () => {
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // ─── URL validation ──────────────────────────────────────────────────────────
-  // Phase 1: regular HEAD — if the response is readable, use response.ok (catches 404/500).
-  // Phase 2: if CORS blocks the read, fall back to no-cors — an opaque response means
-  //          the server is reachable even though we can't see its status code.
-  // A throw in both phases means the host is genuinely unreachable.
-  const fetchUrlStatus = useCallback(async (url) => {
-    if (!url) return "idle";
-    try {
-      const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(5000) });
-      return res.ok ? "valid" : "invalid";
-    } catch {
-      // CORS error or network failure — try no-cors to distinguish the two
-      try {
-        await fetch(url, { method: "HEAD", mode: "no-cors", signal: AbortSignal.timeout(5000) });
-        return "valid"; // server responded, just CORS-blocked so status is opaque
-      } catch {
-        return "invalid"; // DNS failure, connection refused, timeout, etc.
-      }
+  // Route through the background service worker so the fetch runs in a privileged
+  // context that bypasses CORS. Falls back to direct fetch in web-app mode.
+  const fetchUrlStatus = useCallback((url) => {
+    if (!url) return Promise.resolve({ status: "idle" });
+    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: "CHECK_URL", url }, (result) => {
+          resolve(result ?? { status: "invalid", redirectUrl: null });
+        });
+      });
     }
+    // Web-app fallback
+    return fetch(url, { method: "HEAD", signal: AbortSignal.timeout(5000) })
+      .then((res) => ({
+        status: res.ok ? "valid" : "invalid",
+        redirectUrl: res.url && res.url !== url ? res.url : null,
+      }))
+      .catch(() => ({ status: "invalid", redirectUrl: null }));
   }, []);
 
   // ─── Displayed bookmarks (PERF-08: precise deps, ARCH-10: empty state handled in BookmarkList) ─
