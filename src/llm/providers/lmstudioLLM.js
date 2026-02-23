@@ -6,7 +6,7 @@
 
 import { fetchWithRetry } from '../retry.js';
 
-export function createLMStudioLLM({ model = 'lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF', baseUrl = 'http://localhost:1234' } = {}) {
+export function createLMStudioLLM({ model = 'lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF', baseUrl = 'http://localhost:1234', temperature, enableTemperature = false } = {}) {
   // LM Studio exposes OpenAI-compatible /v1 endpoints
   const base = baseUrl.replace(/\/$/, '');
   return {
@@ -23,7 +23,7 @@ export function createLMStudioLLM({ model = 'lmstudio-community/Meta-Llama-3-8B-
               { role: 'system', content: 'You are a helpful assistant.' },
               { role: 'user', content: prompt },
             ],
-            temperature: 0,
+            ...(enableTemperature && typeof temperature === 'number' ? { temperature } : {}),
             stream: false,
           }),
         },

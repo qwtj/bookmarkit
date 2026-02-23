@@ -89,6 +89,14 @@ const OptionsModal = ({
     { value: LLM_PROVIDERS.LMSTUDIO, label: "LM Studio (Local)" },
   ];
 
+  // Models that do not accept a temperature parameter (OpenAI o1/o3 reasoning series)
+  const modelSupportsTemperature = (providerKey, modelName) => {
+    if (providerKey === LLM_PROVIDERS.OPENAI && modelName) {
+      return !/^o[13]/i.test(modelName);
+    }
+    return true;
+  };
+
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-50"
@@ -348,6 +356,54 @@ const OptionsModal = ({
                 </div>
               </div>
             )}
+            {/* Temperature */}
+            {(() => {
+              const supportsTemp = modelSupportsTemperature(provider, providerOptions.model);
+              const isEnabled = supportsTemp && !!(providerOptions.enableTemperature);
+              const tempValue = typeof providerOptions.temperature === "number" ? providerOptions.temperature : 1;
+              return (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="enable-temperature"
+                      checked={isEnabled}
+                      disabled={!supportsTemp}
+                      onChange={(e) => onChangeOptions?.({ enableTemperature: e.target.checked })}
+                      className="rounded border-border accent-accent cursor-pointer disabled:cursor-not-allowed"
+                    />
+                    <label
+                      htmlFor="enable-temperature"
+                      className={`text-sm font-medium ${supportsTemp ? "text-primary-text" : "text-secondary-text"} cursor-pointer`}
+                    >
+                      Temperature
+                    </label>
+                    {!supportsTemp && (
+                      <span className="text-xs text-secondary-text">(not supported by this model)</span>
+                    )}
+                    {isEnabled && (
+                      <span className="ml-auto text-sm tabular-nums text-primary-text">{tempValue.toFixed(1)}</span>
+                    )}
+                  </div>
+                  {isEnabled && (
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className="text-xs text-secondary-text">0</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value={tempValue}
+                        onChange={(e) => onChangeOptions?.({ temperature: parseFloat(e.target.value) })}
+                        className="flex-1 accent-accent"
+                        aria-label="Temperature value"
+                      />
+                      <span className="text-xs text-secondary-text">2</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {/* Theme settings */}
             <div>
               <label

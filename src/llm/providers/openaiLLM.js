@@ -6,7 +6,7 @@
 
 import { fetchWithRetry } from '../retry.js';
 
-export function createOpenAILLM({ apiKey = '', model = 'gpt-4o-mini', baseUrl = 'https://api.openai.com/v1' } = {}) {
+export function createOpenAILLM({ apiKey = '', model = 'gpt-4o-mini', baseUrl = 'https://api.openai.com/v1', temperature, enableTemperature = false } = {}) {
   return {
     name: 'openai',
     async generate(prompt, signal) {
@@ -26,7 +26,7 @@ export function createOpenAILLM({ apiKey = '', model = 'gpt-4o-mini', baseUrl = 
               { role: 'system', content: 'You are a helpful assistant.' },
               { role: 'user', content: prompt },
             ],
-            temperature: 0,
+            ...(enableTemperature && typeof temperature === 'number' ? { temperature } : {}),
           }),
         },
         {},

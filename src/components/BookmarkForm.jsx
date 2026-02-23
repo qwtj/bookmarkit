@@ -21,6 +21,21 @@ const BookmarkForm = ({
   });
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  // Confirmation gate: if an LLM request is in-flight, store the intended action
+  // and ask the user before proceeding. null = no pending confirmation.
+  const [pendingAction, setPendingAction] = useState(null); // { label, fn }
+
+  const isLLMPending = isGeneratingDescription || isGeneratingTags;
+
+  // Wrap any action that should be guarded while LLM is running
+  const guardedAction = (label, fn) => {
+    if (isLLMPending) {
+      setPendingAction({ label, fn });
+    } else {
+      fn();
+    }
+  };
+
   const [ignoreUrlValidation, setIgnoreUrlValidation] = useState(
     bookmark?.urlStatus === "ignored",
   );
@@ -163,8 +178,7 @@ const BookmarkForm = ({
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const doSave = () => {
     const tagsArray = formData.tags
       .split(",")
       .map((tag) => tag.trim())
@@ -176,6 +190,11 @@ const BookmarkForm = ({
       urlStatus: ignoreUrlValidation ? "ignored" : currentUrlValidity,
       ignoreUrlValidation,
     });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    guardedAction("save", doSave);
   };
 
   const generateDescriptionWithGemini = async () => {
@@ -238,6 +257,13 @@ const BookmarkForm = ({
   };
 
   return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={(e) => e.target === e.currentTarget && guardedAction("close", onClose)}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="bg-primary-bg rounded-lg shadow-xl max-w-md w-full m-4 max-h-[90vh] overflow-y-auto">
     <form onSubmit={handleSubmit} className="p-6">
       {/* A11Y-04: Visually-hidden live regions for screen reader announcements */}
       <span ref={descLiveRef} aria-live="polite" className="sr-only" />
@@ -488,31 +514,57 @@ const BookmarkForm = ({
           </div>
         </div>
       </div>
-      <div className="flex justify-end space-x-3">
-        {bookmark && bookmark.id && (
+      {pendingAction ? (
+        <div className="mt-4 p-3 rounded-md bg-yellow-50 border border-yellow-300 text-sm">
+          <p className="text-yellow-800 mb-2">
+            An AI suggestion is still loading. Proceed anyway?
+          </p>
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={() => setPendingAction(null)}
+              className="px-3 py-1 rounded-md bg-secondary-bg text-primary-text border border-border hover:bg-border text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              Keep waiting
+            </button>
+            <button
+              type="button"
+              onClick={() => { const fn = pendingAction.fn; setPendingAction(null); fn(); }}
+              className="px-3 py-1 rounded-md bg-yellow-600 text-white hover:bg-yellow-700 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+            >
+              Proceed
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-end space-x-3">
+          {bookmark && bookmark.id && (
+            <button
+              type="button"
+              onClick={() => guardedAction("delete", () => onDelete(bookmark.id))}
+              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200"
+            >
+              Delete
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => onDelete(bookmark.id)}
-            className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200"
+            onClick={() => guardedAction("close", onClose)}
+            className="px-4 py-2 bg-secondary-bg text-primary-text border border-border rounded-md hover:bg-border focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 transition-colors duration-200"
           >
-            Delete
+            Cancel
           </button>
-        )}
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2 bg-secondary-bg text-primary-text border border-border rounded-md hover:bg-border focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 transition-colors duration-200"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 transition-colors duration-200"
-        >
-          Save Bookmark
-        </button>
-      </div>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 transition-colors duration-200"
+          >
+            Save Bookmark
+          </button>
+        </div>
+      )}
     </form>
+      </div>
+    </div>
   );
 };
 

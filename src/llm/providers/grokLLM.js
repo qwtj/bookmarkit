@@ -6,7 +6,7 @@
 
 import { fetchWithRetry } from '../retry.js';
 
-export function createGrokLLM({ apiKey = '', model = 'grok-beta', baseUrl = 'https://api.x.ai/v1' } = {}) {
+export function createGrokLLM({ apiKey = '', model = 'grok-beta', baseUrl = 'https://api.x.ai/v1', temperature, enableTemperature = false } = {}) {
   return {
     name: 'grok',
     async generate(prompt, signal) {
@@ -25,7 +25,7 @@ export function createGrokLLM({ apiKey = '', model = 'grok-beta', baseUrl = 'htt
             messages: [
               { role: 'user', content: prompt },
             ],
-            temperature: 0,
+            ...(enableTemperature && typeof temperature === 'number' ? { temperature } : {}),
           }),
         },
         {},

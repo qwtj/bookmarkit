@@ -670,19 +670,15 @@ const BookmarkApp = () => {
           <MessageModal message={messageModalContent.message} type={messageModalContent.type} onClose={() => setIsMessageModalOpen(false)} />
         )}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && setIsModalOpen(false)}>
-            <div className="bg-primary-bg rounded-lg shadow-xl max-w-md w-full m-4 max-h-[90vh] overflow-y-auto">
-              <BookmarkForm
-                bookmark={editingBookmark}
-                onClose={() => setIsModalOpen(false)}
-                onSave={handleSaveBookmark}
-                onDelete={handleDeleteBookmark}
-                fetchUrlStatus={fetchUrlStatus}
-                provider={runtimeProvider}
-                providerOptions={runtimeProviderOptions[runtimeProvider] || {}}
-              />
-            </div>
-          </div>
+          <BookmarkForm
+            bookmark={editingBookmark}
+            onClose={() => setIsModalOpen(false)}
+            onSave={handleSaveBookmark}
+            onDelete={handleDeleteBookmark}
+            fetchUrlStatus={fetchUrlStatus}
+            provider={runtimeProvider}
+            providerOptions={runtimeProviderOptions[runtimeProvider] || {}}
+          />
         )}
         {isImportExportModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && handleImportExportClose()}>

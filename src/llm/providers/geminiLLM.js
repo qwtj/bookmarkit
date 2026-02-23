@@ -5,7 +5,7 @@
 
 import { fetchWithRetry } from '../retry.js';
 
-export function createGeminiLLM({ apiKey = '', model = 'gemini-2.0-flash' } = {}, baseUrl = 'https://generativelanguage.googleapis.com') {
+export function createGeminiLLM({ apiKey = '', model = 'gemini-2.0-flash', temperature, enableTemperature = false } = {}, baseUrl = 'https://generativelanguage.googleapis.com') {
   const endpoint = `${baseUrl}/v1beta/models/${model}:generateContent`;
   const listEndpoint = `${baseUrl}/v1beta/models`;
 
@@ -15,7 +15,10 @@ export function createGeminiLLM({ apiKey = '', model = 'gemini-2.0-flash' } = {}
     // to prevent key exposure in browser history, server logs, and referrer headers.
     // ARCH-02: Uses fetchWithRetry for timeout + exponential backoff.
     async generate(prompt, signal) {
-      const payload = { contents: [{ role: 'user', parts: [{ text: prompt }] }] };
+      const payload = {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        ...(enableTemperature && typeof temperature === 'number' ? { generationConfig: { temperature } } : {}),
+      };
       const res = await fetchWithRetry(
         endpoint,
         {
