@@ -21,9 +21,7 @@ const BookmarkCard = React.memo(function BookmarkCard({
       ? "bg-red-50 border-red-300"
       : isActive
         ? "bg-accent border-accent text-white"
-        : isInvalid
-          ? "bg-yellow-100 border-yellow-300"
-          : "bg-primary-bg border-border hover:border-accent hover:shadow-sm",
+        : "bg-primary-bg border-border hover:border-accent hover:shadow-sm",
   ].join(" ");
 
   return (
@@ -37,6 +35,13 @@ const BookmarkCard = React.memo(function BookmarkCard({
       onDoubleClick={onDoubleClick}
       onKeyDown={onKeyDown}
     >
+      {isInvalid && (
+        <span
+          className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-yellow-400"
+          title="URL could not be reached"
+          aria-label="URL unreachable"
+        />
+      )}
       <div className="flex items-center space-x-4">
         <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-secondary-bg rounded">
           <img
