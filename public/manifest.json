@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "bookmarkit extension",
+  "name": "bookmarkit: Bookmark Manager Extension",
   "version": "1.0.0",
-  "description": "A Chrome extension built with Vite and React.",
+  "description": "Organize, tag, search, and rate bookmarks quickly — import/export and optional AI-assisted features for smarter management.",
   "action": {
     "default_icon": {
       "16": "icon16.png",
